@@ -1,0 +1,182 @@
+---
+title: "Customer Segmentation Analysis"
+author: "Ahomagnon Romuald"
+date: "2025-02-05"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(ggplot2)
+library(cluster)
+library(factoextra)
+library(NbClust)
+library(plotrix)
+library(plotly)
+library(GGally)
+library(dbscan)
+```
+# 1. Data Loading and Preprocessing
+
+```{r}
+# Load the dataset
+Data_custumer <- read.csv("~/Downloads/Mes projets/customer-segmentation-dataset/Mall_Customers.csv")
+
+# Normalize the data (scale Age, Annual Income, and Spending Score)
+Data_custumer[, 3:5] <- scale(Data_custumer[, 3:5])
+
+# Display the first few rows of the dataset
+head(Data_custumer)
+```
+2. Data Exploration and Visualization
+Pairwise Relationships
+
+```{r}
+# Visualize pairwise relationships between variables
+ggpairs(Data_custumer[, 3:5], title = "Pairwise Relationships Between Variables")
+```
+
+# Gender Distribution
+
+```{r}
+# Bar plot for gender distribution
+a <- table(Data_custumer$Gender)
+barplot(a, main = "Gender Comparison", ylab = "Count", xlab = "Gender", col = rainbow(2), legend = rownames(a))
+
+# 3D Pie Chart for gender distribution
+pct <- round(a/sum(a)*100)
+lbs <- paste(c("Female", "Male"), " ", pct, "%", sep = " ")
+pie3D(a, labels = lbs, main = "Ratio of Female and Male Customers")
+```
+
+
+
+Age Distribution
+```{r}
+# Histogram for age distribution
+hist(Data_custumer$Age, col = "blue", main = "Age Distribution", xlab = "Age Class", ylab = "Frequency", labels = TRUE)
+
+# Boxplot for age distribution
+boxplot(Data_custumer$Age, col = "#ff0066", main = "Boxplot for Age Distribution")
+
+```
+
+
+
+Annual Income Analysis
+```{r}
+
+# Histogram for annual income
+hist(Data_custumer$Annual.Income..k.., col = "#660033", main = "Annual Income Distribution", xlab = "Annual Income (k$)", ylab = "Frequency", labels = TRUE)
+
+# Density plot for annual income
+plot(density(Data_custumer$Annual.Income..k..), col = "yellow", main = "Density Plot for Annual Income", xlab = "Annual Income (k$)", ylab = "Density")
+polygon(density(Data_custumer$Annual.Income..k..), col = "#ccff66")
+
+```
+
+
+Spending Score Analysis
+```{r}
+
+# Boxplot for spending score
+boxplot(Data_custumer$Spending.Score..1.100., horizontal = TRUE, col = "#990000", main = "Boxplot for Spending Score")
+
+# Histogram for spending score
+hist(Data_custumer$Spending.Score..1.100., main = "Spending Score Distribution", xlab = "Spending Score", ylab = "Frequency", col = "#6600cc", labels = TRUE)
+
+```
+
+
+3. Clustering Analysis
+Elbow Method
+```{r}
+
+# Function to calculate total intra-cluster sum of squares (WCSS)
+iss <- function(k) {
+  kmeans(Data_custumer[, 3:5], k, iter.max = 100, nstart = 100, algorithm = "Lloyd")$tot.withinss
+}
+
+# Compute WCSS for k = 1 to 10
+k.values <- 1:10
+iss_values <- sapply(k.values, iss)
+
+# Plot the elbow curve
+plot(k.values, iss_values, type = "b", pch = 19, frame = FALSE, xlab = "Number of Clusters (k)", ylab = "Total Intra-Cluster Sum of Squares", main = "Elbow Method")
+
+```
+
+Silhouette Method
+
+```{r}
+# Silhouette Method
+fviz_nbclust(Data_custumer[, 3:5], kmeans, method = "silhouette") +
+  ggtitle("Silhouette Method for Optimal Number of Clusters")
+```
+
+Gap Statistic Method
+
+```{r}
+# Gap Statistic Method
+set.seed(125)
+stat_gap <- clusGap(Data_custumer[, 3:5], FUN = kmeans, nstart = 25, K.max = 10, B = 50)
+fviz_gap_stat(stat_gap) +
+  ggtitle("Gap Statistic Method for Optimal Number of Clusters")
+
+
+```
+
+
+
+Final K-means Clustering
+```{r}
+# Perform K-means clustering with the optimal number of clusters (k = 6)
+k6 <- kmeans(Data_custumer[, 3:5], centers = 6, iter.max = 100, nstart = 50, algorithm = "Lloyd")
+k6
+```
+
+
+
+4. Cluster Validation
+Davies-Bouldin Index
+```{r}
+# Install and load the clusterSim package
+install.packages("clusterSim")
+library(clusterSim)
+
+# Compute Davies-Bouldin Index for cluster validation
+davies_bouldin <- index.DB(Data_custumer[, 3:5], k6$cluster)
+davies_bouldin
+```
+
+
+```{r}
+# Create a 3D scatter plot of clusters
+plot_ly(Data_custumer, x = ~Annual.Income..k.., y = ~Spending.Score..1.100., z = ~Age, color = ~as.factor(k6$cluster), colors = c("#FF5733", "#33FF57", "#3357FF", "#FF33A1", "#A133FF", "#33FFF5")) %>%
+  layout(title = "3D Scatter Plot of Customer Segments")
+
+```
+
+
+
+Cluster Profiles
+```{r}
+
+# Summarize cluster profiles
+cluster_profiles <- aggregate(Data_custumer[, 3:5], by = list(k6$cluster), FUN = mean)
+cluster_profiles
+
+```
+
+
+6. Conclusion
+
+    Key Findings: Identified 6 distinct customer segments based on income, spending score, and age.
+
+    Business Implications: Tailor marketing strategies to target each segment effectively.
+
+
+
